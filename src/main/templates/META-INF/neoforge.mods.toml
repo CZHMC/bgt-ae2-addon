@@ -19,7 +19,7 @@ displayName="${mod_name}" #mandatory
 
 #displayURL="https://change.me.to.your.mods.homepage.example.invalid/" #optional
 
-#logoFile="bgt_ae2_addon.png" #optional
+logoFile="bgt_ae2_addon.png" #optional
 
 #credits="" #optional
 

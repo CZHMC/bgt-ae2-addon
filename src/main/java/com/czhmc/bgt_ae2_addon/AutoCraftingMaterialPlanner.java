@@ -44,6 +44,7 @@ import java.util.UUID;
 public final class AutoCraftingMaterialPlanner {
     private static final Logger LOGGER = BgtAe2Addon.LOGGER;
     private static final Map<PendingBuildKey, PendingCraft> PENDING = new HashMap<>();
+    private static final Map<PendingBuildKey, Set<AEItemKey>> SKIPPED_MATERIALS = new HashMap<>();
     private static final Map<UUID, PendingBuildKey> QUANTITY_SELECTIONS = new HashMap<>();
     private static final Map<UUID, PendingBuildKey> NATIVE_SELECTIONS = new HashMap<>();
     private static final Set<PendingBuildKey> CANCELLED_SELECTIONS = new HashSet<>();
@@ -136,7 +137,7 @@ public final class AutoCraftingMaterialPlanner {
                 return true;
             }
 
-            List<ItemStack> missing = findMissingMaterials(buildList, serverLevel, player, network);
+            List<ItemStack> missing = findMissingMaterials(buildList, serverLevel, player, network, pendingKey);
             if (missing == null || missing.isEmpty()) {
                 LOGGER.debug("Releasing BGT build {} after materials became available", buildList.buildUUID);
                 clearFully(pendingKey);
@@ -149,7 +150,7 @@ public final class AutoCraftingMaterialPlanner {
             return true;
         }
 
-        List<ItemStack> missing = findMissingMaterials(buildList, serverLevel, player, network);
+        List<ItemStack> missing = findMissingMaterials(buildList, serverLevel, player, network, pendingKey);
         if (missing == null || missing.isEmpty()) {
             return false;
         }
@@ -299,8 +300,16 @@ public final class AutoCraftingMaterialPlanner {
         }
         PendingBuildKey key = NATIVE_SELECTIONS.get(player.getUUID());
         PendingCraft pending = key == null ? null : PENDING.get(key);
-        if (pending == null || !pending.isAwaitingNativePlan() || !pending.skipNativeMaterial()) {
+        if (pending == null || !pending.isAwaitingNativePlan()) {
             return false;
+        }
+        ItemStack skipped = pending.nativeMaterial();
+        AEItemKey skippedKey = skipped.isEmpty() ? null : AEItemKey.of(skipped);
+        if (!pending.skipNativeMaterial()) {
+            return false;
+        }
+        if (skippedKey != null) {
+            SKIPPED_MATERIALS.computeIfAbsent(key, ignored -> new HashSet<>()).add(skippedKey);
         }
         if (pending.hasNativeMaterialRemaining()) {
             MENU_TRANSITIONS.add(player.getUUID());
@@ -345,6 +354,7 @@ public final class AutoCraftingMaterialPlanner {
 
     static void clearAll() {
         PENDING.clear();
+        SKIPPED_MATERIALS.clear();
         QUANTITY_SELECTIONS.clear();
         NATIVE_SELECTIONS.clear();
         CANCELLED_SELECTIONS.clear();
@@ -431,8 +441,10 @@ public final class AutoCraftingMaterialPlanner {
     }
 
     private static List<ItemStack> findMissingMaterials(ServerBuildList buildList, ServerLevel level,
-                                                        Player player, NetworkContext network) {
+                                                        Player player, NetworkContext network,
+                                                        PendingBuildKey pendingKey) {
         MaterialReservation reservation = MaterialReservation.create(buildList, player, network);
+        Set<AEItemKey> skippedMaterials = SKIPPED_MATERIALS.getOrDefault(pendingKey, Set.of());
         Map<AEItemKey, ItemStack> missing = new LinkedHashMap<>();
 
         for (StatePos statePos : new ArrayList<>(buildList.statePosList)) {
@@ -454,7 +466,7 @@ public final class AutoCraftingMaterialPlanner {
                     continue;
                 }
                 AEItemKey key = AEItemKey.of(drop);
-                if (key == null) {
+                if (key == null || skippedMaterials.contains(key)) {
                     continue;
                 }
                 ItemStack existing = missing.get(key);
@@ -681,6 +693,7 @@ public final class AutoCraftingMaterialPlanner {
                 .toList()) {
             clearFully(staleKey);
         }
+        SKIPPED_MATERIALS.keySet().removeIf(key -> buildUUID.equals(key.buildUUID()));
     }
 
     private static Set<PendingBuildKey> allStateKeys() {

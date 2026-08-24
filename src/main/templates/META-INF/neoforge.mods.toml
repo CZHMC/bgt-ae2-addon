@@ -1,0 +1,69 @@
+
+modLoader="javafml" #mandatory
+
+loaderVersion="${loader_version_range}" #mandatory
+
+license="${mod_license}"
+
+#issueTrackerURL="https://change.me.to.your.issue.tracker.example.invalid/" #optional
+
+[[mods]] #mandatory
+
+modId="${mod_id}" #mandatory
+
+version="${mod_version}" #mandatory
+
+displayName="${mod_name}" #mandatory
+
+#updateJSONURL="https://change.me.example.invalid/updates.json" #optional
+
+#displayURL="https://change.me.to.your.mods.homepage.example.invalid/" #optional
+
+#logoFile="bgt_ae2_addon.png" #optional
+
+#credits="" #optional
+
+authors="CZHMC"
+
+description='''
+Adds AE2 automatic crafting support to selected Building Gadgets 2 placement queues.
+'''
+
+[[mixins]]
+config="${mod_id}.mixins.json"
+
+#[[accessTransformers]]
+#file="META-INF/accesstransformer.cfg"
+
+# The coremods config file path is not configurable and is always loaded from META-INF/coremods.json
+
+[[dependencies.${mod_id}]] #optional
+    modId="neoforge" #mandatory
+    type="required" #mandatory
+    versionRange="[${neo_version},)" #mandatory
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="ae2"
+    type="required"
+    versionRange="${ae2_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="buildinggadgets2"
+    type="required"
+    versionRange="${bgt_version_range}"
+    ordering="AFTER"
+    side="BOTH"
+
+#[features.${mod_id}]
+#openGLVersion="[3.2,)"

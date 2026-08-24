@@ -1,35 +1,99 @@
 # Building Gadgets 2 AE2 Addon
 
-独立的 NeoForge 1.21.1 附属模组，为 Building Gadgets 2 的放置流程接入 Applied Energistics 2 自动合成。
+[中文文档](README_zh_CN.md)
 
-## 使用
+An Applied Energistics 2 addon for Building Gadgets 2 that requests missing building materials from AE2's native autocrafting flow.
 
-1. 将 Building Gadgets 2 小帮手绑定到 AE2 Wireless Access Point（无线访问点）。绑定对象必须是在线且已供电的无线访问点。
-2. 在 AE2 网络中准备能产出目标方块物品的可用合成样板和足够的合成 CPU/能源。
-3. 使用小帮手正常建筑、交换或复制粘贴。缺少材料时，附属模组会先扫描当前 BGT 队列中所有尚未处理的位置，按材料类型汇总整个剩余建筑所需的缺料数量，然后打开 AE2 原生的合成数量窗口。数量默认是整条剩余队列的缺少数量；多种材料会逐项确认，确认完成后进入 AE2 原生合成计划队列。用户在原生计划窗口点击开始后，AE2 会按队列逐项提交合成任务；所有材料计划提交完成前，BGT 队列保持暂停，不会出现请求一个方块、放置一个方块后再重新请求的循环。关闭或取消窗口不会提交当前批次的合成任务。
+> Requires Building Gadgets 2, Applied Energistics 2, and NeoForge for Minecraft 1.21.1.
 
-## 支持范围
+## Features
 
-- 建筑小帮手（BUILD）
-- 交换小帮手（EXCHANGE）
-- 复制粘贴小帮手的普通粘贴/替换阶段（BGT 的 BUILD/EXCHANGE 队列）
+- Integrates AE2 autocrafting with the Building Gadgets 2 `BUILD` and `EXCHANGE` queues.
+- Covers the normal and replacement paste stages of Copy-Paste Gadget queues when BGT uses those queues.
+- Scans the complete remaining BGT queue before requesting materials.
+- Aggregates missing items by AE2 item key, so repeated blocks are requested as one batch.
+- Preserves BGT's source order when checking available materials: AE2 storage, the bound inventory, Curios, then the player's inventory.
+- Uses AE2's native quantity and crafting-plan menus. No custom crafting GUI is added.
+- Keeps the BGT queue paused until the native crafting batch has been submitted and the materials are available to BGT.
 
-以下流程保持 Building Gadgets 2 原行为，不会提交自动合成：
+The addon does not submit crafting jobs silently in the background. The player confirms the amount in AE2's native amount screen, reviews each native crafting plan, and presses **Start** before a job is submitted.
 
-- 剪切粘贴小帮手（CUT）
-- 破坏小帮手（DESTROY）
-- 撤销破坏流程（UNDO_DESTROY）
-- `needItems=false` 的队列、流体材料和创造模式玩家
+## Supported Scope
 
-## 版本与限制
+Supported:
 
-- Minecraft 1.21.1
-- NeoForge 21.1.248
-- Applied Energistics 2 API 19.2.17 以上且小于 20
-- Building Gadgets 2 1.3.9
+- Building Gadget (`BUILD`)
+- Exchanging Gadget (`EXCHANGE`)
+- Copy-Paste Gadget normal paste and replacement paste stages that use BGT's `BUILD`/`EXCHANGE` queues
 
-这是对 BGT 1.3.9 `ServerTickHandler` 的 Mixin，目标是 `build` 和 `exchange` 方法，并在 `statePosList.remove(0)` 前检查材料。因此未来 BGT 版本如果改变这些方法签名、队列字段或处理顺序，需要重新验证并可能更新本附属模组。
+Not handled by this addon:
 
-附属模组复用 AE2 原生 `CraftAmountMenu`、`CraftConfirmMenu`、`CraftAmountScreen` 和 `CraftConfirmScreen`，不自定义合成计划界面。数量确认后由 AE2 原生菜单队列执行计划计算，用户点击每个原生计划窗口的“开始”后才提交任务；多种材料按顺序逐项提交，避免多个计划同时使用同一份网络库存快照。整批计划提交成功且材料回到网络后，Building Gadgets 2 才负责最终的 MODULATE 材料提取。
+- Cut-Paste Gadget (`CUT`)
+- Destruction (`DESTROY`)
+- Undo-destruction (`UNDO_DESTROY`)
+- Queues with `needItems=false`
+- Fluid materials
+- Creative-mode players
 
-开发运行还需要 AE2 要求的 GuideME 21.1.1 或更高版本；附属工程已将其加入 `runtimeOnly` 依赖。
+Unsupported queues are left to Building Gadgets 2's original behavior.
+
+## Requirements
+
+| Component | Version |
+| --- | --- |
+| Minecraft | 1.21.1 |
+| NeoForge | 21.1.248 |
+| Applied Energistics 2 | 19.2.17 or newer, below 20 |
+| Building Gadgets 2 | 1.3.9 or newer |
+| GuideME | 21.1.1 or newer when running AE2 in the development environment |
+
+The addon targets BGT 1.3.9's `ServerTickHandler` `build` and `exchange` methods. A future BGT release that changes those methods, queue fields, or processing order may require an addon update.
+
+## How It Works
+
+1. Bind a Building Gadgets 2 gadget to an active AE2 Wireless Access Point.
+2. Make sure the AE2 network has a pattern that can craft the required block item.
+3. Start a supported BGT building or exchange operation.
+4. When the remaining queue lacks materials, the addon scans all remaining positions and aggregates the missing quantities.
+5. Confirm the quantities in AE2's native amount screen.
+6. Review and start the native AE2 crafting plans.
+7. Once the complete batch is submitted and its materials are available, BGT resumes its normal extraction and placement process.
+
+AE2 can plan one requested item key per crafting plan. For several different missing items, AE2's native queue presents and submits those plans sequentially. The addon keeps the complete BGT batch paused throughout that sequence.
+
+## No Public API
+
+This project is an implementation addon, not an API library. It does not expose a stable public API for other mods. Classes and packages under `com.czhmc.bgt_ae2_addon` are internal implementation details and may change without compatibility guarantees.
+
+## Development
+
+```text
+./gradlew test
+./gradlew build
+```
+
+The development runtime also needs the dependencies declared in `build.gradle`, including GuideME for AE2's runtime dependency chain.
+
+## Issues
+
+Please open an issue with:
+
+- Minecraft, NeoForge, AE2, and BGT versions;
+- the operation type (`BUILD` or `EXCHANGE`);
+- a concise reproduction;
+- the relevant `latest.log` excerpt, with personal data removed.
+
+Modrinth and CurseForge publishing are intentionally not configured yet.
+
+## License
+
+The addon source code in this repository is licensed under the [MIT License](LICENSE).
+
+Third-party dependencies remain under their own licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the dependency and attribution boundary.
+
+## Credits
+
+- [Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2)
+- [Building Gadgets 2](https://github.com/Direwolf20-MC/BuildingGadgets2)
+- [GuideME](https://github.com/AppliedEnergistics/GuideME)
+- [NeoForge](https://github.com/neoforged/NeoForge)

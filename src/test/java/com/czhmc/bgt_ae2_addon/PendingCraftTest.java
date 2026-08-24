@@ -33,6 +33,13 @@ class PendingCraftTest {
     }
 
     @Test
+    void skippingNativeMaterialOnlyContinuesWhenAnotherMaterialRemains() {
+        assertTrue(PendingCraft.hasNativeMaterialAfterSkip(0, 2));
+        assertFalse(PendingCraft.hasNativeMaterialAfterSkip(1, 2));
+        assertFalse(PendingCraft.hasNativeMaterialAfterSkip(0, 1));
+    }
+
+    @Test
     void nativePlanIsOnlyStaleAfterItsMenuTransitionHasFinished() {
         assertTrue(PendingCraft.shouldClearNativePlan(
                 PendingCraft.SubmissionState.NATIVE_PLANNING, false, false));

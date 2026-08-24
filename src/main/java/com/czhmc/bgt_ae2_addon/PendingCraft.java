@@ -45,6 +45,10 @@ public final class PendingCraft {
         return true;
     }
 
+    public static boolean hasNativeMaterialAfterSkip(int materialIndex, int materialCount) {
+        return materialIndex >= 0 && materialIndex + 1 < materialCount;
+    }
+
     public static boolean shouldClearNativePlan(
             SubmissionState state, boolean menuOpen, boolean transitionPending) {
         return state == SubmissionState.NATIVE_PLANNING && !menuOpen && !transitionPending;
@@ -103,6 +107,21 @@ public final class PendingCraft {
             return ItemStack.EMPTY;
         }
         return selectedItems.get(nativeMaterialIndex).copy();
+    }
+
+    public boolean skipNativeMaterial() {
+        if (!isAwaitingNativePlan() || nativeMaterialIndex >= selectedItems.size()) {
+            return false;
+        }
+        int skippedIndex = nativeMaterialIndex++;
+        if (!hasNativeMaterialAfterSkip(skippedIndex, selectedItems.size())) {
+            submissionState = SubmissionState.SUBMITTED;
+        }
+        return true;
+    }
+
+    public boolean hasNativeMaterialRemaining() {
+        return isAwaitingNativePlan() && nativeMaterialIndex < selectedItems.size();
     }
 
     public void markNativePlanFailed() {

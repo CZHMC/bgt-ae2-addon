@@ -16,9 +16,8 @@ public abstract class CraftConfirmMenuMixin {
     private void bgtAe2Addon$cancelBatch(CallbackInfo callbackInfo) {
         var menu = (CraftConfirmMenu) (Object) this;
         if (menu.getPlayer() instanceof ServerPlayer serverPlayer
-                && AutoCraftingMaterialPlanner.ownsNativeMenu(serverPlayer, menu)) {
-            AutoCraftingMaterialPlanner.cancelQuantitySelection(serverPlayer);
-            serverPlayer.closeContainer();
+                && AutoCraftingMaterialPlanner.ownsNativeMenu(serverPlayer, menu)
+                && AutoCraftingMaterialPlanner.skipNativeMaterial(serverPlayer)) {
             callbackInfo.cancel();
         }
     }

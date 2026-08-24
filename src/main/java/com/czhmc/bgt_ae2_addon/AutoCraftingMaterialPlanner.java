@@ -289,6 +289,30 @@ public final class AutoCraftingMaterialPlanner {
         }
     }
 
+    /**
+     * Handles the native plan's back/cancel action. AE2 owns the remaining native queue,
+     * so only the final item closes the addon batch; earlier items let AE2 open the next plan.
+     */
+    public static boolean skipNativeMaterial(ServerPlayer player) {
+        if (player == null) {
+            return false;
+        }
+        PendingBuildKey key = NATIVE_SELECTIONS.get(player.getUUID());
+        PendingCraft pending = key == null ? null : PENDING.get(key);
+        if (pending == null || !pending.isAwaitingNativePlan() || !pending.skipNativeMaterial()) {
+            return false;
+        }
+        if (pending.hasNativeMaterialRemaining()) {
+            MENU_TRANSITIONS.add(player.getUUID());
+            return false;
+        }
+
+        clearFully(key);
+        CANCELLED_SELECTIONS.add(key);
+        player.closeContainer();
+        return true;
+    }
+
     public static boolean ownsNativeMenu(ServerPlayer player, CraftConfirmMenu menu) {
         if (player == null || menu == null) {
             return false;

@@ -4,7 +4,7 @@
 
 An Applied Energistics 2 addon for Building Gadgets 2 that requests missing building materials from AE2's native autocrafting flow.
 
-> Requires Building Gadgets 2, Applied Energistics 2, and NeoForge for Minecraft 1.21.1.
+> Requires Building Gadgets 2 and Applied Energistics 2.
 
 ## Features
 
@@ -41,11 +41,8 @@ Unsupported queues are left to Building Gadgets 2's original behavior.
 
 | Component | Version |
 | --- | --- |
-| Minecraft | 1.21.1 |
-| NeoForge | 21.1.248 |
-| Applied Energistics 2 | 19.2.17 or newer, below 20 |
+| Applied Energistics 2 | 19.2.17 or newer |
 | Building Gadgets 2 | 1.3.9 or newer |
-| GuideME | 21.1.1 or newer when running AE2 in the development environment |
 
 The addon targets BGT 1.3.9's `ServerTickHandler` `build` and `exchange` methods. A future BGT release that changes those methods, queue fields, or processing order may require an addon update.
 
@@ -61,10 +58,6 @@ The addon targets BGT 1.3.9's `ServerTickHandler` `build` and `exchange` methods
 
 AE2 can plan one requested item key per crafting plan. For several different missing items, AE2's native queue presents and submits those plans sequentially. The addon keeps the complete BGT batch paused throughout that sequence.
 
-## No Public API
-
-This project is an implementation addon, not an API library. It does not expose a stable public API for other mods. Classes and packages under `com.czhmc.bgt_ae2_addon` are internal implementation details and may change without compatibility guarantees.
-
 ## Development
 
 ```text
@@ -76,24 +69,13 @@ The development runtime also needs the dependencies declared in `build.gradle`, 
 
 ## Issues
 
-Please open an issue with:
-
-- Minecraft, NeoForge, AE2, and BGT versions;
-- the operation type (`BUILD` or `EXCHANGE`);
-- a concise reproduction;
-- the relevant `latest.log` excerpt, with personal data removed.
-
-Modrinth and CurseForge publishing are intentionally not configured yet.
+For bugs, optimization ideas, or feature suggestions, feel free to open an issue or pull request.
 
 ## License
 
-The addon source code in this repository is licensed under the [MIT License](LICENSE).
-
-Third-party dependencies remain under their own licenses. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the dependency and attribution boundary.
+This repository is licensed under the [MIT License](LICENSE).
 
 ## Credits
 
 - [Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2)
 - [Building Gadgets 2](https://github.com/Direwolf20-MC/BuildingGadgets2)
-- [GuideME](https://github.com/AppliedEnergistics/GuideME)
-- [NeoForge](https://github.com/neoforged/NeoForge)

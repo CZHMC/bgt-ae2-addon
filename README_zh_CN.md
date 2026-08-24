@@ -4,7 +4,7 @@
 
 一个为 Building Gadgets 2 接入 Applied Energistics 2 自动合成流程的附属模组。当建筑队列缺少材料时，本模组会调用 AE2 原生的数量窗口和合成计划窗口，请求网络中存在合成样板的材料。
 
-> 需要 Minecraft 1.21.1、NeoForge、Building Gadgets 2 和 Applied Energistics 2。
+> Building Gadgets 2 和 Applied Energistics 2。
 
 ## 功能
 
@@ -41,11 +41,8 @@
 
 | 组件 | 版本 |
 | --- | --- |
-| Minecraft | 1.21.1 |
-| NeoForge | 21.1.248 |
-| Applied Energistics 2 | 19.2.17 或更高，但低于 20 |
+| Applied Energistics 2 | 19.2.17 或更高 |
 | Building Gadgets 2 | 1.3.9 或更高 |
-| GuideME | AE2 开发运行环境需要 21.1.1 或更高版本 |
 
 本模组针对 BGT 1.3.9 的 `ServerTickHandler` 中 `build` 和 `exchange` 方法。如果未来 BGT 修改这些方法、队列字段或处理顺序，可能需要更新本模组。
 
@@ -61,10 +58,6 @@
 
 AE2 的单个合成计划一次只能请求一种物品。缺少多种不同材料时，AE2 原生队列会按顺序展示并提交这些计划；在整个顺序完成前，本模组会保持 BGT 整批队列暂停。
 
-## 不提供公开 API
-
-本项目是一个实现型附属模组，不是 API 库。本模组不向其他模组提供稳定的公开 API。`com.czhmc.bgt_ae2_addon` 下的类和包均属于内部实现细节，未来版本可能变更，不提供兼容性保证。
-
 ## 开发
 
 ```text
@@ -76,24 +69,13 @@ AE2 的单个合成计划一次只能请求一种物品。缺少多种不同材�
 
 ## 问题反馈
 
-提交 Issue 时请附带：
-
-- Minecraft、NeoForge、AE2 和 BGT 版本；
-- 操作类型（`BUILD` 或 `EXCHANGE`）；
-- 简洁的复现步骤；
-- 相关 `latest.log` 片段，并删除个人信息。
-
-目前暂不配置 Modrinth 和 CurseForge 发布。
+如果你有bug问题、更好的优化或功能建议,欢迎提出issue和pr
 
 ## 许可证
 
-本仓库中的附属模组源代码使用 [MIT License](LICENSE) 授权。
-
-第三方依赖继续使用各自的许可证。许可证和署名边界见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+本仓库使用 [MIT License](LICENSE) 授权。
 
 ## 致谢
 
 - [Applied Energistics 2](https://github.com/AppliedEnergistics/Applied-Energistics-2)
 - [Building Gadgets 2](https://github.com/Direwolf20-MC/BuildingGadgets2)
-- [GuideME](https://github.com/AppliedEnergistics/GuideME)
-- [NeoForge](https://github.com/neoforged/NeoForge)

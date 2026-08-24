@@ -16,6 +16,51 @@ class PendingCraftTest {
     }
 
     @Test
+    void missingMaterialIsRequestableOnlyWithACraftingPattern() {
+        assertTrue(PendingCraft.shouldRequestMissingMaterial(true));
+        assertFalse(PendingCraft.shouldRequestMissingMaterial(false));
+    }
+
+    @Test
+    void quantityConfirmationAlwaysOpensNativePlanBeforeNextQuantity() {
+        assertTrue(PendingCraft.shouldOpenNativePlanAfterQuantity(true));
+        assertFalse(PendingCraft.shouldOpenNativePlanAfterQuantity(false));
+    }
+
+    @Test
+    void submittedNativeMaterialReturnsToQuantitySelectionWhenMoreIsUnselected() {
+        assertEquals(
+                PendingCraft.SubmissionState.AWAITING_CONFIRMATION,
+                PendingCraft.stateAfterNativeSubmission(true, false));
+        assertEquals(
+                PendingCraft.SubmissionState.NATIVE_PLANNING,
+                PendingCraft.stateAfterNativeSubmission(false, true));
+        assertEquals(
+                PendingCraft.SubmissionState.SUBMITTED,
+                PendingCraft.stateAfterNativeSubmission(false, false));
+    }
+
+    @Test
+    void craftableMissingMaterialMayRemainInTheInitialBgtQueue() {
+        assertTrue(PendingCraft.shouldAllowInitialMaterialReservation(true, false));
+        assertTrue(PendingCraft.shouldAllowInitialMaterialReservation(false, true));
+        assertFalse(PendingCraft.shouldAllowInitialMaterialReservation(false, false));
+    }
+
+    @Test
+    void nativePlanSkipCanReturnToQuantitySelection() {
+        assertEquals(
+                PendingCraft.SubmissionState.AWAITING_CONFIRMATION,
+                PendingCraft.stateAfterNativeSkip(true, false));
+        assertEquals(
+                PendingCraft.SubmissionState.NATIVE_PLANNING,
+                PendingCraft.stateAfterNativeSkip(false, true));
+        assertEquals(
+                PendingCraft.SubmissionState.SUBMITTED,
+                PendingCraft.stateAfterNativeSkip(false, false));
+    }
+
+    @Test
     void pendingBuildIdentityIsStableWhileBgtAdvancesItsQueue() {
         var buildUuid = java.util.UUID.randomUUID();
 
@@ -37,6 +82,16 @@ class PendingCraftTest {
         assertTrue(PendingCraft.hasNativeMaterialAfterSkip(0, 2));
         assertFalse(PendingCraft.hasNativeMaterialAfterSkip(1, 2));
         assertFalse(PendingCraft.hasNativeMaterialAfterSkip(0, 1));
+    }
+
+    @Test
+    void onlyQuantitySelectionCancellationSkipsItsCurrentMaterial() {
+        assertTrue(PendingCraft.shouldSkipMaterialOnCancel(
+                PendingCraft.SubmissionState.AWAITING_CONFIRMATION));
+        assertFalse(PendingCraft.shouldSkipMaterialOnCancel(
+                PendingCraft.SubmissionState.NATIVE_PLANNING));
+        assertFalse(PendingCraft.shouldSkipMaterialOnCancel(
+                PendingCraft.SubmissionState.SUBMITTED));
     }
 
     @Test

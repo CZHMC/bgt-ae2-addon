@@ -4,8 +4,10 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "ServerTickHandlerMixin",
+    "BuildingUtilsMixin",
     "CraftAmountMenuMixin",
     "CraftConfirmMenuMixin",
+    "SwitchGuisPacketMixin",
     "WirelessAccessPointBlockEntityMixin"
   ],
   "injectors": {

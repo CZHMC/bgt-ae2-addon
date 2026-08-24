@@ -48,7 +48,8 @@ public final class PendingCraftCleanup {
         }
         if (AutoCraftingMaterialPlanner.isAwaitingQuantitySelection(key)) {
             return !(player.containerMenu instanceof CraftAmountMenu)
-                    && !(player.containerMenu instanceof CraftConfirmMenu);
+                    && !(player.containerMenu instanceof CraftConfirmMenu)
+                    && !AutoCraftingMaterialPlanner.hasMenuTransition(player);
         }
         return AutoCraftingMaterialPlanner.shouldClearNativePlan(key, player);
     }

@@ -83,6 +83,7 @@ repositories {
             includeGroup "curse.maven"
         }
     }
+    maven { url 'https://modmaven.dev/' }
     maven { url = "https://maven.blamejared.com" }//jei
 
     mavenCentral()
@@ -102,6 +103,13 @@ dependencies {
     compileOnly "curse.maven:bgt-298187:6850515"
     runtimeOnly "curse.maven:bgt-298187:6850515"
 
+    //test
+    runtimeOnly "curse.maven:jec-250702:8541967"//通用拼音搜索
+    runtimeOnly "curse.maven:Mouse Tweaks-60089:5637846"//鼠标手势
+    runtimeOnly "mekanism:Mekanism:${mekanism_version}"// Mekanism
+    runtimeOnly "mekanism:Mekanism:${mekanism_version}:additions"// Mekanism: Additions
+    runtimeOnly "mekanism:Mekanism:${mekanism_version}:generators"// Mekanism: Generators
+    runtimeOnly "mekanism:Mekanism:${mekanism_version}:tools"// Mekanism: Tools
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

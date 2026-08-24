@@ -15,7 +15,8 @@ public abstract class CraftAmountMenuMixin {
                                      CallbackInfo callbackInfo) {
         var player = ((CraftAmountMenu) (Object) this).getPlayer();
         if (player instanceof ServerPlayer serverPlayer
-                && AutoCraftingMaterialPlanner.confirmQuantitySelection(serverPlayer, amount)) {
+                && AutoCraftingMaterialPlanner.confirmQuantitySelection(
+                        serverPlayer, amount, autoStart)) {
             callbackInfo.cancel();
         }
     }

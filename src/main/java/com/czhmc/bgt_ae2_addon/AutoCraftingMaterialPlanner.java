@@ -44,7 +44,6 @@ import java.util.UUID;
 public final class AutoCraftingMaterialPlanner {
     private static final Logger LOGGER = BgtAe2Addon.LOGGER;
     private static final Map<PendingBuildKey, PendingCraft> PENDING = new HashMap<>();
-    private static final Map<PendingBuildKey, Set<AEItemKey>> SKIPPED_MATERIALS = new HashMap<>();
     private static final Map<UUID, PendingBuildKey> QUANTITY_SELECTIONS = new HashMap<>();
     private static final Map<UUID, PendingBuildKey> NATIVE_SELECTIONS = new HashMap<>();
     private static final Set<PendingBuildKey> CANCELLED_SELECTIONS = new HashSet<>();
@@ -113,6 +112,10 @@ public final class AutoCraftingMaterialPlanner {
                 if (isQuantityMenuOpen(player)) {
                     return true;
                 }
+                if (pending.hasQuantitySelectionRemaining()
+                        && openNextQuantitySelection(pendingKey, pending, buildList, player, network)) {
+                    return true;
+                }
                 clearFully(pendingKey);
                 return false;
             }
@@ -123,6 +126,11 @@ public final class AutoCraftingMaterialPlanner {
                     return true;
                 }
                 if (MENU_TRANSITIONS.remove(player.getUUID())) {
+                    if (pending.awaitingQuantitySelection()
+                            && openNextQuantitySelection(
+                                    pendingKey, pending, buildList, player, network)) {
+                        return true;
+                    }
                     return openNativePlan(pendingKey, pending, buildList, player, network);
                 }
                 return true;
@@ -137,7 +145,7 @@ public final class AutoCraftingMaterialPlanner {
                 return true;
             }
 
-            List<ItemStack> missing = findMissingMaterials(buildList, serverLevel, player, network, pendingKey);
+            List<ItemStack> missing = findMissingMaterials(buildList, serverLevel, player, network);
             if (missing == null || missing.isEmpty()) {
                 LOGGER.debug("Releasing BGT build {} after materials became available", buildList.buildUUID);
                 clearFully(pendingKey);
@@ -150,11 +158,36 @@ public final class AutoCraftingMaterialPlanner {
             return true;
         }
 
-        List<ItemStack> missing = findMissingMaterials(buildList, serverLevel, player, network, pendingKey);
+        List<ItemStack> missing = findMissingMaterials(buildList, serverLevel, player, network);
         if (missing == null || missing.isEmpty()) {
             return false;
         }
         return openQuantitySelection(pendingKey, missing, buildList, player);
+    }
+
+    public static boolean hasCraftableShortfall(
+            Player player, List<ItemStack> requested, GlobalPos boundPos, net.minecraft.core.Direction direction) {
+        if (player == null || requested == null || requested.isEmpty()) {
+            return false;
+        }
+        NetworkContext network = resolveNetwork(boundPos, player);
+        if (network == null) {
+            return false;
+        }
+        for (ItemStack stack : requested) {
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            if (BuildingUtils.removeStacksFromInventory(
+                    player, List.of(stack.copy()), true, boundPos, direction)) {
+                continue;
+            }
+            AEItemKey key = AEItemKey.of(stack);
+            if (key == null || !network.craftingService().isCraftable(key)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     static int pendingCount() {
@@ -169,7 +202,8 @@ public final class AutoCraftingMaterialPlanner {
         clearFully(key);
     }
 
-    public static boolean confirmQuantitySelection(ServerPlayer player, int amount) {
+    public static boolean confirmQuantitySelection(
+            ServerPlayer player, int amount, boolean autoStart) {
         if (player == null || !(player.containerMenu instanceof CraftAmountMenu amountMenu)
                 || !(amountMenu.getHost() instanceof ISubMenuHost)) {
             return false;
@@ -204,28 +238,13 @@ public final class AutoCraftingMaterialPlanner {
         if (!pending.acceptSelectedQuantity(amount)) {
             return true;
         }
-        if (pending.awaitingQuantitySelection()) {
-            NetworkContext network = resolveNetwork(buildList.boundPos, player);
-            if (network == null || pending.selectedKey() == null) {
-                clearFully(key);
-                return true;
-            }
-            MENU_TRANSITIONS.add(player.getUUID());
-            CraftAmountMenu.open(player, new WirelessAccessPointMenuLocator(
-                            network.accessPointEntity().getLevel().dimension(),
-                            network.accessPointEntity().getBlockPos()),
-                    pending.selectedKey(), pending.selectedQuantity());
+        if (!pending.hasSelectedQuantity()) {
             return true;
         }
+
         QUANTITY_SELECTIONS.remove(player.getUUID());
         NetworkContext network = resolveNetwork(buildList.boundPos, player);
-        if (network == null || !pending.beginNativeConfirmation()) {
-            pending.markNativePlanFailed();
-            return true;
-        }
-        ItemStack selected = pending.nativeMaterial();
-        AEItemKey selectedKey = selected.isEmpty() ? null : AEItemKey.of(selected);
-        if (selectedKey == null) {
+        if (network == null || !pending.beginNativeConfirmationAfterQuantity()) {
             pending.markNativePlanFailed();
             return true;
         }
@@ -254,7 +273,6 @@ public final class AutoCraftingMaterialPlanner {
             return false;
         }
         if (pending.submissionState() != PendingCraft.SubmissionState.SUBMITTED) {
-            // AE2 opens the next native plan itself. Keep ownership while that menu is replaced.
             MENU_TRANSITIONS.add(player.getUUID());
         } else {
             NATIVE_SELECTIONS.remove(player.getUUID());
@@ -270,7 +288,45 @@ public final class AutoCraftingMaterialPlanner {
         if (MENU_TRANSITIONS.contains(player.getUUID())) {
             return;
         }
+        if (container instanceof CraftAmountMenu amountMenu) {
+            handleQuantityMenuBack(player, amountMenu);
+            return;
+        }
         cancelQuantitySelection(player);
+    }
+
+    public static boolean handleQuantityMenuBack(ServerPlayer player, CraftAmountMenu amountMenu) {
+        if (player == null || amountMenu == null) {
+            return false;
+        }
+        PendingBuildKey key = QUANTITY_SELECTIONS.get(player.getUUID());
+        PendingCraft pending = key == null ? null : PENDING.get(key);
+        if (key == null || pending == null
+                || !PendingCraft.shouldSkipMaterialOnCancel(pending.submissionState())
+                || !pending.skipSelectedQuantity()) {
+            return false;
+        }
+
+        if (pending.hasQuantitySelectionRemaining()) {
+            ServerBuildList buildList = ServerTickHandler.buildMap.get(key.buildUUID());
+            NetworkContext network = buildList == null ? null : resolveNetwork(buildList.boundPos, player);
+            ItemStack next = pending.selectedItem();
+            AEItemKey nextKey = next.isEmpty() ? null : AEItemKey.of(next);
+            if (buildList != null && network != null && nextKey != null) {
+                MENU_TRANSITIONS.add(player.getUUID());
+                CraftAmountMenu.open(player, new WirelessAccessPointMenuLocator(
+                                network.accessPointEntity().getLevel().dimension(),
+                                network.accessPointEntity().getBlockPos()),
+                        nextKey, next.getCount());
+                if (player.containerMenu instanceof CraftAmountMenu) {
+                    return true;
+                }
+            }
+        }
+
+        clearFully(key);
+        CANCELLED_SELECTIONS.add(key);
+        return false;
     }
 
     public static void cancelQuantitySelection(ServerPlayer player) {
@@ -303,15 +359,17 @@ public final class AutoCraftingMaterialPlanner {
         if (pending == null || !pending.isAwaitingNativePlan()) {
             return false;
         }
-        ItemStack skipped = pending.nativeMaterial();
-        AEItemKey skippedKey = skipped.isEmpty() ? null : AEItemKey.of(skipped);
         if (!pending.skipNativeMaterial()) {
             return false;
         }
-        if (skippedKey != null) {
-            SKIPPED_MATERIALS.computeIfAbsent(key, ignored -> new HashSet<>()).add(skippedKey);
-        }
         if (pending.hasNativeMaterialRemaining()) {
+            MENU_TRANSITIONS.add(player.getUUID());
+            return false;
+        }
+
+        if (pending.awaitingQuantitySelection()
+                && pending.hasQuantitySelectionRemaining()) {
+            NATIVE_SELECTIONS.remove(player.getUUID());
             MENU_TRANSITIONS.add(player.getUUID());
             return false;
         }
@@ -354,11 +412,33 @@ public final class AutoCraftingMaterialPlanner {
 
     static void clearAll() {
         PENDING.clear();
-        SKIPPED_MATERIALS.clear();
         QUANTITY_SELECTIONS.clear();
         NATIVE_SELECTIONS.clear();
         CANCELLED_SELECTIONS.clear();
         MENU_TRANSITIONS.clear();
+    }
+
+    private static boolean openNextQuantitySelection(
+            PendingBuildKey key,
+            PendingCraft pending,
+            ServerBuildList buildList,
+            Player player,
+            NetworkContext network) {
+        if (!(player instanceof ServerPlayer serverPlayer)) {
+            return false;
+        }
+        ItemStack next = pending.selectedItem();
+        AEItemKey nextKey = next.isEmpty() ? null : AEItemKey.of(next);
+        if (nextKey == null) {
+            return false;
+        }
+        MENU_TRANSITIONS.add(serverPlayer.getUUID());
+        QUANTITY_SELECTIONS.put(serverPlayer.getUUID(), key);
+        CraftAmountMenu.open(serverPlayer, new WirelessAccessPointMenuLocator(
+                        network.accessPointEntity().getLevel().dimension(),
+                        network.accessPointEntity().getBlockPos()),
+                nextKey, next.getCount());
+        return isQuantityMenuOpen(serverPlayer);
     }
 
     private static boolean openNativePlan(PendingBuildKey key, PendingCraft pending,
@@ -369,11 +449,16 @@ public final class AutoCraftingMaterialPlanner {
             return true;
         }
 
-        List<ICraftingGridMenu.AutoCraftEntry> entries = pending.selectedItems().stream()
-                .map(stack -> new ICraftingGridMenu.AutoCraftEntry(
-                        AEItemKey.of(stack),
-                        virtualSlots(stack.getCount())))
-                .toList();
+        ItemStack selected = pending.nativeMaterial();
+        AEItemKey selectedKey = selected.isEmpty() ? null : AEItemKey.of(selected);
+        if (selectedKey == null) {
+            pending.markNativePlanFailed();
+            return true;
+        }
+        List<ICraftingGridMenu.AutoCraftEntry> entries = List.of(
+                new ICraftingGridMenu.AutoCraftEntry(
+                        selectedKey,
+                        virtualSlots(selected.getCount())));
         if (entries.isEmpty()) {
             pending.markNativePlanFailed();
             return true;
@@ -441,10 +526,8 @@ public final class AutoCraftingMaterialPlanner {
     }
 
     private static List<ItemStack> findMissingMaterials(ServerBuildList buildList, ServerLevel level,
-                                                        Player player, NetworkContext network,
-                                                        PendingBuildKey pendingKey) {
+                                                        Player player, NetworkContext network) {
         MaterialReservation reservation = MaterialReservation.create(buildList, player, network);
-        Set<AEItemKey> skippedMaterials = SKIPPED_MATERIALS.getOrDefault(pendingKey, Set.of());
         Map<AEItemKey, ItemStack> missing = new LinkedHashMap<>();
 
         for (StatePos statePos : new ArrayList<>(buildList.statePosList)) {
@@ -466,7 +549,7 @@ public final class AutoCraftingMaterialPlanner {
                     continue;
                 }
                 AEItemKey key = AEItemKey.of(drop);
-                if (key == null || skippedMaterials.contains(key)) {
+                if (key == null || !PendingCraft.shouldRequestMissingMaterial(network.craftingService().isCraftable(key))) {
                     continue;
                 }
                 ItemStack existing = missing.get(key);
@@ -693,7 +776,6 @@ public final class AutoCraftingMaterialPlanner {
                 .toList()) {
             clearFully(staleKey);
         }
-        SKIPPED_MATERIALS.keySet().removeIf(key -> buildUUID.equals(key.buildUUID()));
     }
 
     private static Set<PendingBuildKey> allStateKeys() {

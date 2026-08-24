@@ -41,12 +41,51 @@ public final class PendingCraft {
         return needItems && ("BUILD".equals(buildType) || "EXCHANGE".equals(buildType));
     }
 
+    public static boolean shouldRequestMissingMaterial(boolean hasCraftingPattern) {
+        return hasCraftingPattern;
+    }
+
+    public static boolean shouldOpenNativePlanAfterQuantity(boolean hasSelectedQuantity) {
+        return hasSelectedQuantity;
+    }
+
+    public static SubmissionState stateAfterNativeSubmission(
+            boolean hasUnselectedQuantity, boolean hasNativeMaterialRemaining) {
+        if (hasUnselectedQuantity) {
+            return SubmissionState.AWAITING_CONFIRMATION;
+        }
+        if (hasNativeMaterialRemaining) {
+            return SubmissionState.NATIVE_PLANNING;
+        }
+        return SubmissionState.SUBMITTED;
+    }
+
+    public static SubmissionState stateAfterNativeSkip(
+            boolean hasUnselectedQuantity, boolean hasNativeMaterialRemaining) {
+        if (hasUnselectedQuantity && !hasNativeMaterialRemaining) {
+            return SubmissionState.AWAITING_CONFIRMATION;
+        }
+        if (hasNativeMaterialRemaining) {
+            return SubmissionState.NATIVE_PLANNING;
+        }
+        return SubmissionState.SUBMITTED;
+    }
+
+    public static boolean shouldAllowInitialMaterialReservation(
+            boolean hasAvailableMaterial, boolean hasCraftingPattern) {
+        return hasAvailableMaterial || hasCraftingPattern;
+    }
+
     public static boolean failureReturnsToBgt() {
         return true;
     }
 
     public static boolean hasNativeMaterialAfterSkip(int materialIndex, int materialCount) {
         return materialIndex >= 0 && materialIndex + 1 < materialCount;
+    }
+
+    public static boolean shouldSkipMaterialOnCancel(SubmissionState state) {
+        return state == SubmissionState.AWAITING_CONFIRMATION;
     }
 
     public static boolean shouldClearNativePlan(
@@ -98,6 +137,33 @@ public final class PendingCraft {
         return true;
     }
 
+    public boolean beginNativeConfirmationAfterQuantity() {
+        if (selectedItems.isEmpty()
+                || (submissionState != SubmissionState.AWAITING_CONFIRMATION
+                        && submissionState != SubmissionState.CALCULATING)) {
+            return false;
+        }
+        submissionState = SubmissionState.NATIVE_PLANNING;
+        return true;
+    }
+
+    public boolean hasSelectedQuantity() {
+        return !selectedItems.isEmpty();
+    }
+
+    public boolean hasUnselectedQuantity() {
+        return quantitySelectionIndex < requiredItems.size();
+    }
+
+    public boolean resumeQuantitySelection() {
+        if (submissionState != SubmissionState.NATIVE_PLANNING
+                || !hasUnselectedQuantity()) {
+            return false;
+        }
+        submissionState = SubmissionState.AWAITING_CONFIRMATION;
+        return true;
+    }
+
     public boolean isAwaitingNativePlan() {
         return submissionState == SubmissionState.NATIVE_PLANNING;
     }
@@ -115,7 +181,8 @@ public final class PendingCraft {
         }
         int skippedIndex = nativeMaterialIndex++;
         if (!hasNativeMaterialAfterSkip(skippedIndex, selectedItems.size())) {
-            submissionState = SubmissionState.SUBMITTED;
+            submissionState = stateAfterNativeSkip(
+                    hasUnselectedQuantity(), false);
         }
         return true;
     }
@@ -136,7 +203,8 @@ public final class PendingCraft {
         if (nativeMaterialIndex < selectedItems.size()) {
             return true;
         }
-        submissionState = SubmissionState.SUBMITTED;
+        submissionState = stateAfterNativeSubmission(
+                hasUnselectedQuantity(), false);
         return true;
     }
 
@@ -173,6 +241,18 @@ public final class PendingCraft {
             submissionState = SubmissionState.CALCULATING;
         }
         return true;
+    }
+
+    public boolean skipSelectedQuantity() {
+        if (!awaitingQuantitySelection() || quantitySelectionIndex >= requiredItems.size()) {
+            return false;
+        }
+        quantitySelectionIndex++;
+        return true;
+    }
+
+    public boolean hasQuantitySelectionRemaining() {
+        return awaitingQuantitySelection() && quantitySelectionIndex < requiredItems.size();
     }
 
     public List<ItemStack> selectedItems() {

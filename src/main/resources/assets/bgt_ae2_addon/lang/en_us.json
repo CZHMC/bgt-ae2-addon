@@ -1,3 +1,4 @@
 {
-  "item.bgt_ae2_addon.info": "Building Gadgets 2 AE2 Addon"
+  "item.bgt_ae2_addon.info": "Building Gadgets 2 AE2 Addon",
+  "message.bgt_ae2_addon.crafting_quantity_too_low": "The crafting quantity cannot be less than the currently missing amount: %s"
 }

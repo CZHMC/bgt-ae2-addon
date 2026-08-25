@@ -1,0 +1,4 @@
+{
+  "item.bgt_ae2_addon.info": "建筑工具 2 AE2 附属",
+  "message.bgt_ae2_addon.crafting_quantity_too_low": "合成数量不能少于当前缺少数量: %s"
+}

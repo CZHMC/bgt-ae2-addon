@@ -231,8 +231,8 @@ public final class AutoCraftingMaterialPlanner {
         LOGGER.debug("Received AE2 quantity confirmation for BGT build {}: {} items of {}",
                 key.buildUUID(), amount, pending.selectedKey());
         if (amount < pending.selectedQuantity()) {
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
-                    "合成数量不能少于当前缺少数量: " + pending.selectedQuantity()));
+            player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.bgt_ae2_addon.crafting_quantity_too_low", pending.selectedQuantity()));
             return true;
         }
         if (!pending.acceptSelectedQuantity(amount)) {

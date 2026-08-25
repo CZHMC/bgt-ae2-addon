@@ -46,6 +46,8 @@ public final class AutoCraftingMaterialPlanner {
     private static final Map<PendingBuildKey, PendingCraft> PENDING = new HashMap<>();
     private static final Map<UUID, PendingBuildKey> QUANTITY_SELECTIONS = new HashMap<>();
     private static final Map<UUID, PendingBuildKey> NATIVE_SELECTIONS = new HashMap<>();
+    private static final Map<PendingBuildKey, Set<AEItemKey>> CANCELLED_MATERIALS = new HashMap<>();
+    private static final Map<UUID, PendingBuildKey> ACTIVE_BUILDS = new HashMap<>();
     private static final Set<PendingBuildKey> CANCELLED_SELECTIONS = new HashSet<>();
     private static final Set<UUID> MENU_TRANSITIONS = new HashSet<>();
 
@@ -63,6 +65,8 @@ public final class AutoCraftingMaterialPlanner {
         if (buildList == null || buildList.buildUUID == null || player == null) {
             return false;
         }
+        PendingBuildKey pendingKey = new PendingBuildKey(buildList.buildUUID, buildList.buildType);
+        ACTIVE_BUILDS.put(player.getUUID(), pendingKey);
         if (!isSupported(buildList.buildType, buildList.needItems)) {
             clearForBuild(buildList.buildUUID);
             return false;
@@ -82,7 +86,6 @@ public final class AutoCraftingMaterialPlanner {
             return false;
         }
 
-        PendingBuildKey pendingKey = new PendingBuildKey(buildList.buildUUID, buildList.buildType);
         PendingCraft pending = PENDING.get(pendingKey);
         if (CANCELLED_SELECTIONS.remove(pendingKey)) {
             return false;
@@ -170,6 +173,9 @@ public final class AutoCraftingMaterialPlanner {
         if (player == null || requested == null || requested.isEmpty()) {
             return false;
         }
+        if (hasCancelledMaterialForActiveBuild(player, requested)) {
+            return false;
+        }
         NetworkContext network = resolveNetwork(boundPos, player);
         if (network == null) {
             return false;
@@ -190,16 +196,40 @@ public final class AutoCraftingMaterialPlanner {
         return true;
     }
 
+    public static boolean hasCancelledMaterialForActiveBuild(
+            Player player, List<ItemStack> requested) {
+        PendingBuildKey buildKey = player == null ? null : ACTIVE_BUILDS.get(player.getUUID());
+        if (buildKey == null || requested == null) {
+            return false;
+        }
+        Set<AEItemKey> cancelled = CANCELLED_MATERIALS.get(buildKey);
+        if (cancelled == null || cancelled.isEmpty()) {
+            return false;
+        }
+        return requested.stream()
+                .filter(stack -> stack != null && !stack.isEmpty())
+                .map(AEItemKey::of)
+                .anyMatch(cancelled::contains);
+    }
+
+    private static boolean isCancelledMaterial(ServerBuildList buildList, AEItemKey key) {
+        PendingBuildKey buildKey = new PendingBuildKey(buildList.buildUUID, buildList.buildType);
+        Set<AEItemKey> cancelled = CANCELLED_MATERIALS.get(buildKey);
+        return cancelled != null && cancelled.contains(key);
+    }
+
     static int pendingCount() {
         return PENDING.size();
     }
 
     static List<PendingBuildKey> pendingKeys() {
-        return List.copyOf(PENDING.keySet());
+        return List.copyOf(allStateKeys());
     }
 
     static void clearPending(PendingBuildKey key) {
         clearFully(key);
+        CANCELLED_MATERIALS.remove(key);
+        ACTIVE_BUILDS.entrySet().removeIf(entry -> key.equals(entry.getValue()));
     }
 
     public static boolean confirmQuantitySelection(
@@ -302,10 +332,14 @@ public final class AutoCraftingMaterialPlanner {
         PendingBuildKey key = QUANTITY_SELECTIONS.get(player.getUUID());
         PendingCraft pending = key == null ? null : PENDING.get(key);
         if (key == null || pending == null
-                || !PendingCraft.shouldSkipMaterialOnCancel(pending.submissionState())
-                || !pending.skipSelectedQuantity()) {
+                || !PendingCraft.shouldSkipMaterialOnCancel(pending.submissionState())) {
             return false;
         }
+        AEItemKey cancelled = pending.selectedKey();
+        if (!pending.skipSelectedQuantity()) {
+            return false;
+        }
+        rememberCancelledMaterial(key, cancelled);
 
         if (pending.hasQuantitySelectionRemaining()) {
             ServerBuildList buildList = ServerTickHandler.buildMap.get(key.buildUUID());
@@ -341,8 +375,15 @@ public final class AutoCraftingMaterialPlanner {
             key = NATIVE_SELECTIONS.remove(player.getUUID());
         }
         if (key != null) {
-            clearFully(key);
-            CANCELLED_SELECTIONS.add(key);
+            PendingCraft pending = PENDING.get(key);
+            AEItemKey cancelled = pending == null
+                    ? null
+                    : pending.awaitingQuantitySelection()
+                            ? pending.selectedKey()
+                            : pending.nativeMaterial().isEmpty()
+                                    ? null
+                                    : AEItemKey.of(pending.nativeMaterial());
+            finishCancellation(key, cancelled);
         }
     }
 
@@ -359,25 +400,60 @@ public final class AutoCraftingMaterialPlanner {
         if (pending == null || !pending.isAwaitingNativePlan()) {
             return false;
         }
+        AEItemKey cancelled = pending.nativeMaterial().isEmpty()
+                ? null
+                : AEItemKey.of(pending.nativeMaterial());
         if (!pending.skipNativeMaterial()) {
             return false;
         }
+        rememberCancelledMaterial(key, cancelled);
         if (pending.hasNativeMaterialRemaining()) {
             MENU_TRANSITIONS.add(player.getUUID());
             return false;
         }
 
         if (pending.awaitingQuantitySelection()
-                && pending.hasQuantitySelectionRemaining()) {
+                && pending.hasQuantitySelectionRemaining()
+                && PendingCraft.shouldInterceptNativePlanCancel(
+                        pending.hasQuantitySelectionRemaining(),
+                        pending.hasNativeMaterialRemaining())) {
             NATIVE_SELECTIONS.remove(player.getUUID());
-            MENU_TRANSITIONS.add(player.getUUID());
-            return false;
+            ServerBuildList buildList = ServerTickHandler.buildMap.get(key.buildUUID());
+            NetworkContext network = buildList == null
+                    ? null
+                    : resolveNetwork(buildList.boundPos, player);
+            if (buildList != null
+                    && network != null
+                    && openNextQuantitySelection(key, pending, buildList, player, network)) {
+                LOGGER.debug("Native AE2 plan cancelled; opening next quantity selection for BGT build {}",
+                        key.buildUUID());
+                return true;
+            }
         }
 
         clearFully(key);
+        rememberCancelledMaterial(key, cancelled);
         CANCELLED_SELECTIONS.add(key);
         player.closeContainer();
         return true;
+    }
+
+    private static void rememberCancelledMaterial(PendingBuildKey key, AEItemKey material) {
+        if (key == null || material == null) {
+            return;
+        }
+        CANCELLED_MATERIALS.computeIfAbsent(key, ignored -> new HashSet<>()).add(material);
+    }
+
+    private static void finishCancellation(PendingBuildKey key, AEItemKey material) {
+        if (key == null) {
+            return;
+        }
+        if (material != null) {
+            CANCELLED_MATERIALS.computeIfAbsent(key, ignored -> new HashSet<>()).add(material);
+        }
+        clearFully(key);
+        CANCELLED_SELECTIONS.add(key);
     }
 
     public static boolean ownsNativeMenu(ServerPlayer player, CraftConfirmMenu menu) {
@@ -414,6 +490,8 @@ public final class AutoCraftingMaterialPlanner {
         PENDING.clear();
         QUANTITY_SELECTIONS.clear();
         NATIVE_SELECTIONS.clear();
+        CANCELLED_MATERIALS.clear();
+        ACTIVE_BUILDS.clear();
         CANCELLED_SELECTIONS.clear();
         MENU_TRANSITIONS.clear();
     }
@@ -549,7 +627,8 @@ public final class AutoCraftingMaterialPlanner {
                     continue;
                 }
                 AEItemKey key = AEItemKey.of(drop);
-                if (key == null || !PendingCraft.shouldRequestMissingMaterial(network.craftingService().isCraftable(key))) {
+                if (key == null || isCancelledMaterial(buildList, key)
+                        || !PendingCraft.shouldRequestMissingMaterial(network.craftingService().isCraftable(key))) {
                     continue;
                 }
                 ItemStack existing = missing.get(key);
@@ -775,11 +854,16 @@ public final class AutoCraftingMaterialPlanner {
                 .filter(key -> buildUUID.equals(key.buildUUID()))
                 .toList()) {
             clearFully(staleKey);
+            CANCELLED_MATERIALS.remove(staleKey);
         }
+        ACTIVE_BUILDS.entrySet().removeIf(entry -> buildUUID.equals(entry.getValue().buildUUID()));
     }
 
     private static Set<PendingBuildKey> allStateKeys() {
-        return new HashSet<>(PENDING.keySet());
+        Set<PendingBuildKey> keys = new HashSet<>(PENDING.keySet());
+        keys.addAll(CANCELLED_MATERIALS.keySet());
+        keys.addAll(ACTIVE_BUILDS.values());
+        return keys;
     }
 
     private record NetworkContext(IWirelessAccessPoint accessPoint, BlockEntity accessPointEntity,

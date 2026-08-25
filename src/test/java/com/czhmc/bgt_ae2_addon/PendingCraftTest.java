@@ -61,6 +61,51 @@ class PendingCraftTest {
     }
 
     @Test
+    void nativePlanCancellationMustBeInterceptedBeforeNextQuantitySelection() {
+        assertTrue(
+                PendingCraft.shouldInterceptNativePlanCancel(
+                        true,
+                        false));
+        assertFalse(
+                PendingCraft.shouldInterceptNativePlanCancel(
+                        false,
+                        false));
+    }
+
+    @Test
+    void finalNativePlanCancellationMustResumeTheBgtQueue() {
+        assertTrue(
+                PendingCraft.shouldResumeBgtAfterCancellation(
+                        false,
+                        false));
+        assertFalse(
+                PendingCraft.shouldResumeBgtAfterCancellation(
+                        true,
+                        false));
+        assertFalse(
+                PendingCraft.shouldResumeBgtAfterCancellation(
+                        false,
+                        true));
+    }
+
+    @Test
+    void cancelledMaterialIsSkippedOnlyForTheSameBuild() {
+        var firstBuild = java.util.UUID.randomUUID();
+        var secondBuild = java.util.UUID.randomUUID();
+
+        assertTrue(PendingCraft.shouldSkipCancelledMaterial(
+                new PendingBuildKey(firstBuild,
+                        com.direwolf20.buildinggadgets2.common.events.ServerBuildList.BuildType.BUILD),
+                new PendingBuildKey(firstBuild,
+                        com.direwolf20.buildinggadgets2.common.events.ServerBuildList.BuildType.BUILD)));
+        assertFalse(PendingCraft.shouldSkipCancelledMaterial(
+                new PendingBuildKey(secondBuild,
+                        com.direwolf20.buildinggadgets2.common.events.ServerBuildList.BuildType.BUILD),
+                new PendingBuildKey(firstBuild,
+                        com.direwolf20.buildinggadgets2.common.events.ServerBuildList.BuildType.BUILD)));
+    }
+
+    @Test
     void pendingBuildIdentityIsStableWhileBgtAdvancesItsQueue() {
         var buildUuid = java.util.UUID.randomUUID();
 

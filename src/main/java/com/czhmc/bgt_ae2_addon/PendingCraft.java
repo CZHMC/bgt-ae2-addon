@@ -71,6 +71,22 @@ public final class PendingCraft {
         return SubmissionState.SUBMITTED;
     }
 
+    public static boolean shouldInterceptNativePlanCancel(
+            boolean hasUnselectedQuantity, boolean hasNativeMaterialRemaining) {
+        return hasUnselectedQuantity && !hasNativeMaterialRemaining;
+    }
+
+    public static boolean shouldResumeBgtAfterCancellation(
+            boolean hasUnselectedQuantity, boolean hasNativeMaterialRemaining) {
+        return !hasUnselectedQuantity && !hasNativeMaterialRemaining;
+    }
+
+    public static boolean shouldSkipCancelledMaterial(
+            PendingBuildKey buildKey,
+            PendingBuildKey cancelledBuildKey) {
+        return buildKey != null && buildKey.equals(cancelledBuildKey);
+    }
+
     public static boolean shouldAllowInitialMaterialReservation(
             boolean hasAvailableMaterial, boolean hasCraftingPattern) {
         return hasAvailableMaterial || hasCraftingPattern;

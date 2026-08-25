@@ -27,6 +27,10 @@ public abstract class BuildingUtilsMixin {
             boolean simulate,
             GlobalPos boundPos,
             Direction direction) {
+        if (simulate && AutoCraftingMaterialPlanner
+                .hasCancelledMaterialForActiveBuild(player, requested)) {
+            return false;
+        }
         return allowCraftableShortfall(
                 player, requested, simulate, boundPos, direction);
     }
@@ -44,6 +48,10 @@ public abstract class BuildingUtilsMixin {
             boolean simulate,
             GlobalPos boundPos,
             Direction direction) {
+        if (simulate && AutoCraftingMaterialPlanner
+                .hasCancelledMaterialForActiveBuild(player, requested)) {
+            return false;
+        }
         return allowCraftableShortfall(
                 player, requested, simulate, boundPos, direction);
     }

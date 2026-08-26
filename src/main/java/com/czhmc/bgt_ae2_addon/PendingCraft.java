@@ -42,7 +42,7 @@ public final class PendingCraft {
     }
 
     public static boolean shouldRequestMissingMaterial(boolean hasCraftingPattern) {
-        return hasCraftingPattern;
+        return true;
     }
 
     public static boolean shouldOpenNativePlanAfterQuantity(boolean hasSelectedQuantity) {
@@ -89,7 +89,7 @@ public final class PendingCraft {
 
     public static boolean shouldAllowInitialMaterialReservation(
             boolean hasAvailableMaterial, boolean hasCraftingPattern) {
-        return hasAvailableMaterial || hasCraftingPattern;
+        return true;
     }
 
     public static boolean failureReturnsToBgt() {

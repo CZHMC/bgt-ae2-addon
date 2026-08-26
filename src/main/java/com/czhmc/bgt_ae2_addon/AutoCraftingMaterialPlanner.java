@@ -189,7 +189,7 @@ public final class AutoCraftingMaterialPlanner {
                 continue;
             }
             AEItemKey key = AEItemKey.of(stack);
-            if (key == null || !network.craftingService().isCraftable(key)) {
+            if (key == null) {
                 return false;
             }
         }
@@ -628,7 +628,8 @@ public final class AutoCraftingMaterialPlanner {
                 }
                 AEItemKey key = AEItemKey.of(drop);
                 if (key == null || isCancelledMaterial(buildList, key)
-                        || !PendingCraft.shouldRequestMissingMaterial(network.craftingService().isCraftable(key))) {
+                        || !PendingCraft.shouldRequestMissingMaterial(
+                                network.craftingService().isCraftable(key))) {
                     continue;
                 }
                 ItemStack existing = missing.get(key);

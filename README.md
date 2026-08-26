@@ -12,6 +12,7 @@ An Applied Energistics 2 addon for Building Gadgets 2 that requests missing buil
 - Covers the normal and replacement paste stages of Copy-Paste Gadget queues when BGT uses those queues.
 - Scans the complete remaining BGT queue before requesting materials.
 - Aggregates missing items by AE2 item key, so repeated blocks are requested as one batch.
+- Materials do not need to have crafting patterns; patternless materials are included in the same request and shown as missing quantities in the AE2 plan.
 - Preserves BGT's source order when checking available materials: AE2 storage, the bound inventory, Curios, then the player's inventory.
 - Uses AE2's native quantity and crafting-plan menus. No custom crafting GUI is added.
 - Keeps the BGT queue paused until the native crafting batch has been submitted and the materials are available to BGT.
@@ -49,14 +50,14 @@ The addon targets BGT 1.3.9's `ServerTickHandler` `build` and `exchange` methods
 ## How It Works
 
 1. Bind a Building Gadgets 2 gadget to an active AE2 Wireless Access Point.
-2. Make sure the AE2 network has a pattern that can craft the required block item.
+2. Put patterns for materials that should be autocrafted into the AE2 network; materials without patterns can still be requested and will appear as missing quantities in the plan.
 3. Start a supported BGT building or exchange operation.
 4. When the remaining queue lacks materials, the addon scans all remaining positions and aggregates the missing quantities.
 5. Confirm the quantities in AE2's native amount screen.
 6. Review and start the native AE2 crafting plans.
 7. Once the complete batch is submitted and its materials are available, BGT resumes its normal extraction and placement process.
 
-AE2 can plan one requested item key per crafting plan. For several different missing items, AE2's native queue presents and submits those plans sequentially. The addon keeps the complete BGT batch paused throughout that sequence.
+AE2 plans one requested item key per crafting plan. For several different missing items, the native amount screen presents them in sequence; materials with patterns open a normal crafting plan, while patternless materials produce a partial plan listing the missing quantity. The addon keeps the complete BGT batch paused throughout that sequence.
 
 ## Development
 

@@ -16,9 +16,9 @@ class PendingCraftTest {
     }
 
     @Test
-    void missingMaterialIsRequestableOnlyWithACraftingPattern() {
+    void missingMaterialIsRequestableWithOrWithoutACraftingPattern() {
         assertTrue(PendingCraft.shouldRequestMissingMaterial(true));
-        assertFalse(PendingCraft.shouldRequestMissingMaterial(false));
+        assertTrue(PendingCraft.shouldRequestMissingMaterial(false));
     }
 
     @Test
@@ -41,10 +41,10 @@ class PendingCraftTest {
     }
 
     @Test
-    void craftableMissingMaterialMayRemainInTheInitialBgtQueue() {
+    void missingMaterialMayRemainInTheInitialBgtQueueWithOrWithoutAPattern() {
         assertTrue(PendingCraft.shouldAllowInitialMaterialReservation(true, false));
         assertTrue(PendingCraft.shouldAllowInitialMaterialReservation(false, true));
-        assertFalse(PendingCraft.shouldAllowInitialMaterialReservation(false, false));
+        assertTrue(PendingCraft.shouldAllowInitialMaterialReservation(false, false));
     }
 
     @Test
